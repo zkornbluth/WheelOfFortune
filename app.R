@@ -10,9 +10,7 @@
 library(shiny)
 library(shinyWidgets)
 library(tidyverse)
-library(ggplot2)
 library(bslib)
-library(lubridate)
 library(scales)
 
 # Import our data, add puzzle length and pct_letters_revealed
