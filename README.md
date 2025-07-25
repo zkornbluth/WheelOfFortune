@@ -61,5 +61,3 @@ In the popup window, enter the packages separated by a space or comma and click 
 
 ### 3. Run the app
 Click the "Run App" button in RStudio.
-
-Icon made by [Freepik](https://www.flaticon.com/authors/freepik) from [Flaticon](https://www.flaticon.com/).
