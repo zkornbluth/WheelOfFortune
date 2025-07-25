@@ -113,7 +113,9 @@ getLetterFreq <- function(startYear, endYear, category=NULL) {
       filter(Category == category)
   }
   
-  letter_freq_data <- tibble(letter = guessable_letters, appearance_rate = 0)
+  vowels <- c("A", "I", "O", "U")
+  
+  letter_freq_data <- tibble(letter = guessable_letters, appearance_rate = 0, is_vowel = letter %in% vowels)
   
   for (i in 1:nrow(letter_freq_data)) {
     letter = letter_freq_data[i, 'letter'][[1]]
@@ -137,7 +139,7 @@ ui <- page_fillable(
   h1("Wheel of Fortune Bonus Round Dashboard"),
   airYearpickerInput(
     "yearpicker",
-    label="Year(s)",
+    label="Year Range",
     multiple=FALSE,
     range=TRUE,
     min="2001-01-01",
@@ -250,9 +252,10 @@ server <- function(input, output, session) {
   
   output$letterfreqplot <- renderPlot(
     ggplot(letter_data()) +
-      geom_col(mapping=aes(x=fct_rev(fct_reorder(letter, appearance_rate)), y=appearance_rate), fill="blue") +
-      labs(y = "Appearance Rate", x = "Letter") +
+      geom_col(mapping=aes(x=fct_rev(fct_reorder(letter, appearance_rate)), y=appearance_rate, fill=is_vowel)) +
+      labs(y = "Appearance Rate", x = "Letter", fill = "") +
       scale_y_continuous(labels = scales::percent_format(scale = 100)) +
+      scale_fill_manual(values = c("TRUE" = "red", "FALSE" = "blue"), labels = c("Consonant", "Vowel")) +
       theme_minimal()
   )
   
@@ -273,13 +276,13 @@ server <- function(input, output, session) {
   output$revealedplot <- renderPlot(
     if (input$categoriesOn) {
       ggplot(plot_data()) + 
-        geom_col(mapping=aes(y=fct_reorder(category, pct_letters_revealed), x=pct_letters_revealed), fill="red") + 
+        geom_col(mapping=aes(y=fct_reorder(category, pct_letters_revealed), x=pct_letters_revealed), fill="brown") + 
         labs(x = "Average Percent of Letters Revealed", y = "Category") +
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
         theme_minimal()
     } else {
       ggplot(plot_data()) +
-        geom_path(mapping=aes(year, pct_letters_revealed), color="red") + 
+        geom_path(mapping=aes(year, pct_letters_revealed), color="brown") + 
         labs(x = "Year", y = "Average Percent of Letters Revealed") +
         scale_y_continuous(labels = scales::percent_format(scale = 100)) +
         theme_minimal()
