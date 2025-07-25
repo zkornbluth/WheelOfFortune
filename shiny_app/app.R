@@ -136,6 +136,7 @@ getCatsInYearRange <- function(startYear, endYear) {
 }
 
 ui <- page_fillable(
+  title = "Bonus Round",
   h1("Wheel of Fortune Bonus Round Dashboard"),
   airYearpickerInput(
     "yearpicker",
