@@ -1,6 +1,7 @@
 # Wheel of Fortune Bonus Round Dashboard
 
 If you're ever on Wheel of Fortune and make it to the Bonus Round, this dashboard will help you choose a category and the best letters to help you solve the puzzle.
+Check it out here: [http://zkornbluth.github.io/WheelOfFortune](http://zkornbluth.github.io/WheelOfFortune)
 
 ## Data Source
 
@@ -31,6 +32,8 @@ The dashboard includes the following configuration options:
 
 ## Getting Started
 
+If you want to set it up locally, follow the instructions below.
+
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/zkornbluth/WheelOfFortune.git
@@ -58,3 +61,5 @@ In the popup window, enter the packages separated by a space or comma and click 
 
 ### 3. Run the app
 Click the "Run App" button in RStudio.
+
+Icon made by [Freepik](https://www.flaticon.com/authors/freepik) from [Flaticon](https://www.flaticon.com/).
