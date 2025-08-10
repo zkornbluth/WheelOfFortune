@@ -135,8 +135,17 @@ getCatsInYearRange <- function(startYear, endYear) {
   return(unique(games_to_check$Category))
 }
 
+integer_breaks <- function(n = 5, ...) {
+  fxn <- function(x) {
+    breaks <- floor(pretty(x, n, ...))
+    names(breaks) <- attr(breaks, "labels")
+    breaks
+  }
+  return(fxn)
+}
+
 ui <- page_fillable(
-  title = "Bonus Round",
+  title = "WoF Dashboard",
   h1("Wheel of Fortune Bonus Round Dashboard"),
   airYearpickerInput(
     "yearpicker",
@@ -246,7 +255,8 @@ server <- function(input, output, session) {
       ggplot(plot_data()) + 
         geom_path(mapping=aes(year, win_pct), color="purple") + 
         labs(x = "Year", y = "Win Percentage") +
-        scale_y_continuous(labels = scales::percent_format(scale = 100)) +
+        scale_y_continuous(labels = scales::percent_format(scale = 100), limits=c(0, 0.5)) +
+        scale_x_continuous(breaks = integer_breaks()) +
         theme_minimal()
     }
   )
@@ -263,13 +273,14 @@ server <- function(input, output, session) {
   output$puzzlengthplot <- renderPlot(
     if (input$categoriesOn) {
       ggplot(plot_data()) + 
-        geom_col(mapping=aes(y=fct_reorder(category, puzzle_length), x=puzzle_length), fill="green") + 
+        geom_col(mapping=aes(y=fct_reorder(category, puzzle_length), x=puzzle_length), fill="springgreen3") + 
         labs(x = "Average Puzzle Length", y = "Category") +
         theme_minimal()
     } else {
       ggplot(plot_data()) + 
-        geom_path(mapping=aes(year, puzzle_length), color="green") + 
+        geom_path(mapping=aes(year, puzzle_length), color="springgreen3") + 
         labs(x = "Year", y = "Average Puzzle Length") +
+        scale_x_continuous(breaks = integer_breaks()) +
         theme_minimal()
     }
   )
@@ -277,15 +288,16 @@ server <- function(input, output, session) {
   output$revealedplot <- renderPlot(
     if (input$categoriesOn) {
       ggplot(plot_data()) + 
-        geom_col(mapping=aes(y=fct_reorder(category, pct_letters_revealed), x=pct_letters_revealed), fill="brown") + 
+        geom_col(mapping=aes(y=fct_reorder(category, pct_letters_revealed), x=pct_letters_revealed), fill="deepskyblue") + 
         labs(x = "Average Percent of Letters Revealed", y = "Category") +
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
         theme_minimal()
     } else {
       ggplot(plot_data()) +
-        geom_path(mapping=aes(year, pct_letters_revealed), color="brown") + 
+        geom_path(mapping=aes(year, pct_letters_revealed), color="deepskyblue") + 
         labs(x = "Year", y = "Average Percent of Letters Revealed") +
         scale_y_continuous(labels = scales::percent_format(scale = 100)) +
+        scale_x_continuous(breaks = integer_breaks()) +
         theme_minimal()
     }
   )
