@@ -12,7 +12,9 @@ The goal of this dashboard is to help contestants choose a category and their le
 ## Data Source
 
 I obtained this data from [https://www.angelfire.com/mi4/malldirectories/wheel/wheelbonus.html](https://www.angelfire.com/mi4/malldirectories/wheel/wheelbonus.html). 
-I gathered every game from September 2001 (when prizes changed to just cash or cars) to March 2016 (the most recent the site included).
+I gathered every game from September 2001 (when prizes changed to just cash or cars) to March 2016 (the most recent the site included). 
+
+For all of these games, the contestant didn't get to choose the category - that began in September 2017.
 
 ## Features
 The dashboard displays the following graphs:
