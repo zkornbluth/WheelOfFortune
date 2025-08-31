@@ -161,7 +161,8 @@ ui <- page_fillable(
   materialSwitch(
     "categoriesOn",
     label="Show Categories",
-    status="info"
+    status="info",
+    value=TRUE
   ),
   layout_columns(
     card(
