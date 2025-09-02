@@ -25,7 +25,7 @@ The dashboard displays the following graphs:
 
 The dashboard includes the following configuration options:
 * Selecting a start and end year filters the data used in all graphs to the games between the selected years.
-* Clicking the "Show Categories" toggle changes the three yearly graphs to bar charts comparing categories.
+* Clicking the "Show Categories" toggle changes between bar charts of categories and line graphs over time. The toggle defaults to On.
 * Selecting a category under Puzzle Letter Frequency shows the frequency of guessable letters for that category's puzzles.
 
 [<img width="1470" height="919" alt="dashboard-1" src="https://github.com/user-attachments/assets/7972ab2a-bbeb-40f5-b39d-e25eb8566e4c" />]: # 
