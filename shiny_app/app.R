@@ -1,3 +1,7 @@
+# Filename: app.R
+# Description: Logic for Wheel of Fortune Dashboard
+# Author: Zachary Kornbluth <github.com/zkornbluth>
+
 #
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
@@ -52,9 +56,14 @@ for (y in 1:nrow(yearly_wheel_data)) {
 }
 
 # Handle category data
-# Combine plurals into singular (Places -> Place, Things -> Thing, etc) all smaller ones into "Other"
-# Small categories (10 or fewer games): Best Seller, Classic TV, Fictional Place, Landmark, Quotation, Song Lyrics, On the Menu, In the Kitchen, Rhyme Time, Title
-small_cats <- c("Best Seller", "Classic TV", "Fictional Place", "Landmark", "Quotation", "Song Lyrics", "On the Menu", "In the Kitchen", "Rhyme Time", "Title")
+# Combine plurals into singular (Places -> Place, Things -> Thing, etc), all smaller ones into "Other"
+# Small categories (10 or fewer games): 
+# Best Seller, Classic TV, Fictional Place, Landmark, 
+# Quotation, Song Lyrics, On the Menu, In the Kitchen, 
+# Rhyme Time, Title
+small_cats <- c("Best Seller", "Classic TV", "Fictional Place", "Landmark", 
+                "Quotation", "Song Lyrics", "On the Menu", "In the Kitchen", 
+                "Rhyme Time", "Title")
 plurals <- c("Places", "Things", "Fictional Characters", "Living Things")
 
 for (i in 1:nrow(wheel_data)) {
@@ -63,7 +72,7 @@ for (i in 1:nrow(wheel_data)) {
     wheel_data[i, "Category"] <- "Other"
   } else if (cat %in% plurals) {
     wheel_data[i, "Category"] <- substr(cat, 1, nchar(cat) -1)
-  } else if (cat == "People") {
+  } else if (cat == "People") { # Also a plural but not as simple as removing the 's'
     wheel_data[i, "Category"] <- "Person"
   }
 }
@@ -103,17 +112,18 @@ getCategorizedWheelDataYearFilter <- function(startYear, endYear) {
 }
 
 getLetterFreq <- function(startYear, endYear, category=NULL) {
+  # All letters are guessable except R, S, T, L, N, and E
   guessable_letters <- c("A", "B", "C", "D", "F", "G", "H", "I", "J", "K",
                "M", "O", "P", "Q", "U", "V", "W", "X", "Y", "Z")
   games_to_check <- wheel_data %>% 
     filter(as.numeric(year) >= startYear,
            as.numeric(year) <= endYear)
-  if (!is.null(category)) {
+  if (!is.null(category)) { # if no category, don't filter
     games_to_check <- games_to_check %>% 
       filter(Category == category)
   }
   
-  vowels <- c("A", "I", "O", "U")
+  vowels <- c("A", "I", "O", "U") # So we can color vowels differently
   
   letter_freq_data <- tibble(letter = guessable_letters, appearance_rate = 0, is_vowel = letter %in% vowels)
   
@@ -127,6 +137,7 @@ getLetterFreq <- function(startYear, endYear, category=NULL) {
   return(letter_freq_data)
 }
 
+# Only show category if there's games in the year range with that category
 getCatsInYearRange <- function(startYear, endYear) {
   games_to_check <- wheel_data %>% 
     filter(as.numeric(year) >= startYear,
@@ -135,6 +146,7 @@ getCatsInYearRange <- function(startYear, endYear) {
   return(unique(games_to_check$Category))
 }
 
+# For 'Year' axis breaks, so we don't get decimals
 integer_breaks <- function(n = 5, ...) {
   fxn <- function(x) {
     breaks <- floor(pretty(x, n, ...))
@@ -147,6 +159,7 @@ integer_breaks <- function(n = 5, ...) {
 ui <- page_fillable(
   title = "WoF Dashboard",
   h1("Wheel of Fortune Bonus Round Dashboard"),
+  # Year Picker (2001 - 2016)
   airYearpickerInput(
     "yearpicker",
     label="Year Range",
@@ -158,6 +171,7 @@ ui <- page_fillable(
     addon='none',
     update_on='close'
   ),
+  # Show Categories switch
   materialSwitch(
     "categoriesOn",
     label="Show Categories",
@@ -165,10 +179,12 @@ ui <- page_fillable(
     value=TRUE
   ),
   layout_columns(
+    # Win Percentage plot
     card(
       card_header("Win Percentage", class="bg-dark"),
       plotOutput("winpctplot")
       ),
+    # Puzzle Letter Frequency plot
     card(
       card_header("Puzzle Letter Frequency", class="bg-dark"),
       selectInput(
@@ -179,15 +195,17 @@ ui <- page_fillable(
       ),
       plotOutput("letterfreqplot")
       ),
+    # Average Puzzle Length plot
     card(
       card_header("Avg Puzzle Length", class="bg-dark"),
       plotOutput("puzzlengthplot")
       ),
+    # Average Percentage of Puzzle Revealed plot
     card(
       card_header("Avg Percentage of Puzzle Revealed", class="bg-dark"),
       plotOutput("revealedplot")
       ),
-    col_widths = c(6, 6, 6, 6),
+    col_widths = c(6, 6, 6, 6), # each plot/card is half the screen width
     row_heights = c(1, 1)
   )
 )
@@ -245,6 +263,12 @@ server <- function(input, output, session) {
     updateSelectInput(session, "pickcategory", choices = c("All", cat_options()))
   })
   
+  # Render plots
+  # Other than Puzzle Letter Frequency, the plots change on Show Categories
+  # Show Categories is on: bar charts by category
+  # Show Categories is off: line graphs by year
+  
+  # Render Win Percentage plot
   output$winpctplot <- renderPlot(
     if (input$categoriesOn) {
       ggplot(plot_data()) + 
@@ -262,6 +286,7 @@ server <- function(input, output, session) {
     }
   )
   
+  # Render Puzzle Letter Frequency plot
   output$letterfreqplot <- renderPlot(
     ggplot(letter_data()) +
       geom_col(mapping=aes(x=fct_rev(fct_reorder(letter, appearance_rate)), y=appearance_rate, fill=is_vowel)) +
@@ -271,6 +296,7 @@ server <- function(input, output, session) {
       theme_minimal()
   )
   
+  # Render Average Puzzle Length plot
   output$puzzlengthplot <- renderPlot(
     if (input$categoriesOn) {
       ggplot(plot_data()) + 
@@ -286,6 +312,7 @@ server <- function(input, output, session) {
     }
   )
   
+  # Render Average Percentage of Puzzle Revealed plot
   output$revealedplot <- renderPlot(
     if (input$categoriesOn) {
       ggplot(plot_data()) + 
