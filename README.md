@@ -11,10 +11,13 @@ The goal of this dashboard is to help contestants choose a category and their le
 
 ## Data Source
 
-I obtained this data from [https://www.angelfire.com/mi4/malldirectories/wheel/wheelbonus.html](https://www.angelfire.com/mi4/malldirectories/wheel/wheelbonus.html). 
-I gathered every game from September 2001 (when prizes changed to just cash or cars) to March 2016 (the most recent the site included). 
+I obtained this data from two sources:
+- [https://www.angelfire.com/mi4/malldirectories/wheel/wheelbonus.html](https://www.angelfire.com/mi4/malldirectories/wheel/wheelbonus.html)
+- [https://andynwof.wordpress.com/](https://andynwof.wordpress.com/)
+  
+Games September 2001 - March 2016 are from the first source. Games April 2016 - June 2025 are from the second source.
 
-For all of these games, the contestant didn't get to choose the category - that began in September 2017.
+Contestants were able to choose their Bonus Round category from three options starting in September 2017.
 
 ## Features
 The dashboard displays the following graphs:
