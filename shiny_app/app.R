@@ -39,8 +39,8 @@ wheel_data$pct_letters_revealed <- wheel_data$num_revealed_letters / wheel_data$
 
 wheel_data$year <- wheel_data$Date %>% format("%Y")
 
-# Data spans 2001-2016
-yearly_wheel_data <- tibble(year = c(2001:2016), win_pct = 0, puzzle_length = 0, pct_letters_revealed = 0)
+# Data spans 2001-2025
+yearly_wheel_data <- tibble(year = c(2001:2025), win_pct = 0, puzzle_length = 0, pct_letters_revealed = 0)
 
 # For each year - collect that year's games
 # Calculate win %, avg puzzle length, avg % of letters revealed
@@ -61,10 +61,9 @@ for (y in 1:nrow(yearly_wheel_data)) {
 # Best Seller, Classic TV, Fictional Place, Landmark, 
 # Quotation, Song Lyrics, On the Menu, In the Kitchen, 
 # Rhyme Time, Title
-small_cats <- c("Best Seller", "Classic TV", "Fictional Place", "Landmark", 
-                "Quotation", "Song Lyrics", "On the Menu", "In the Kitchen", 
-                "Rhyme Time", "Title")
-plurals <- c("Places", "Things", "Fictional Characters", "Living Things")
+small_cats <- c("Best Seller", "Character", "Characters", "Classic TV", "Fictional Place", 
+                "Landmark", "On the Menu", "Quotation", "Rhyme Time", "Song Lyrics", "Title")
+plurals <- c("Events", "Fictional Characters", "Living Things", "Occupations", "Places", "Things")
 
 for (i in 1:nrow(wheel_data)) {
   cat = wheel_data[i, "Category"]
@@ -159,14 +158,14 @@ integer_breaks <- function(n = 5, ...) {
 ui <- page_fillable(
   title = "WoF Dashboard",
   h1("Wheel of Fortune Bonus Round Dashboard"),
-  # Year Picker (2001 - 2016)
+  # Year Picker (2001 - 2025)
   airYearpickerInput(
     "yearpicker",
     label="Year Range",
     multiple=FALSE,
     range=TRUE,
     min="2001-01-01",
-    max="2016-12-31",
+    max="2025-12-31",
     autoClose=TRUE,
     addon='none',
     update_on='close'
@@ -190,7 +189,7 @@ ui <- page_fillable(
       selectInput(
         "pickcategory",
         label = "Select a category:",
-        choices=c("All", getCatsInYearRange(2001, 2016)),
+        choices=c("All", getCatsInYearRange(2001, 2025)),
         selected="All"
       ),
       plotOutput("letterfreqplot")
@@ -213,7 +212,7 @@ ui <- page_fillable(
 server <- function(input, output, session) {
   plot_data <- reactive({
       if (input$categoriesOn & is.null(input$yearpicker)) {
-        getCategorizedWheelDataYearFilter(2001, 2016)
+        getCategorizedWheelDataYearFilter(2001, 2025)
         
       } else if (input$categoriesOn & !is.null(input$yearpicker)) {
         startYear <- lubridate::year(as.Date(input$yearpicker[1]))
@@ -234,13 +233,13 @@ server <- function(input, output, session) {
   
   letter_data <- reactive({
     if (is.null(input$yearpicker) & input$pickcategory == "All") {
-      getLetterFreq(2001, 2016)
+      getLetterFreq(2001, 2025)
     } else if (input$pickcategory == "All") {
       startYear <- lubridate::year(as.Date(input$yearpicker[1]))
       endYear <- lubridate::year(as.Date(input$yearpicker[2]))
       getLetterFreq(startYear, endYear)
     } else if (is.null(input$yearpicker)) {
-      getLetterFreq(2001, 2016, input$pickcategory)
+      getLetterFreq(2001, 2025, input$pickcategory)
     } else {
       startYear <- lubridate::year(as.Date(input$yearpicker[1]))
       endYear <- lubridate::year(as.Date(input$yearpicker[2]))
@@ -250,7 +249,7 @@ server <- function(input, output, session) {
   
   cat_options <- reactive({
     if (is.null(input$yearpicker)) {
-      getCatsInYearRange(2001, 2016)
+      getCatsInYearRange(2001, 2025)
     } else {
       startYear <- lubridate::year(as.Date(input$yearpicker[1]))
       endYear <- lubridate::year(as.Date(input$yearpicker[2]))
