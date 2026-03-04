@@ -156,9 +156,23 @@ integer_breaks <- function(n = 5, ...) {
   return(fxn)
 }
 
+light_theme <- bs_theme(version = 5, bootswatch = "flatly")
+dark_theme <- bs_theme(version = 5, bootswatch = "darkly")
+
 ui <- page_fillable(
   title = "WoF Dashboard",
-  h1("Wheel of Fortune Bonus Round Dashboard"),
+  theme = light_theme,
+  div(
+    class = "d-flex justify-content-between align-items-center mb-3",
+    h1("Wheel of Fortune Bonus Round Dashboard"),
+    actionButton(
+      "darkmode",
+      label = NULL,
+      icon = icon("moon"),
+      width = "auto",
+      class = "btn-outline-secondary btn-sm"
+    )
+  ),
   # Year range controls (2001 - 2025)
   div(
     class = "d-flex align-items-center",
@@ -222,6 +236,70 @@ ui <- page_fillable(
 )
 
 server <- function(input, output, session) {
+  dark_mode <- reactiveVal(FALSE)
+  
+  observeEvent(input$darkmode, {
+    new_val <- !dark_mode()
+    dark_mode(new_val)
+    
+    if (new_val) {
+      session$setCurrentTheme(dark_theme)
+      updateActionButton(session, "darkmode", label = NULL, icon = icon("sun"))
+    } else {
+      session$setCurrentTheme(light_theme)
+      updateActionButton(session, "darkmode", label = NULL, icon = icon("moon"))
+    }
+  })
+  
+  apply_plot_theme <- function(p) {
+    if (dark_mode()) {
+      p %>%
+        layout(
+          # Match dark card/background color from theme
+          paper_bgcolor = "#2d2d2d",
+          plot_bgcolor = "#2d2d2d",
+          font = list(color = "white"),
+          legend = list(font = list(color = "white")),
+          xaxis = list(
+            tickfont = list(color = "white"),
+            title = list(font = list(color = "white")),
+            gridcolor = "#888888",
+            zerolinecolor = "#888888",
+            linecolor = "white"
+          ),
+          yaxis = list(
+            tickfont = list(color = "white"),
+            title = list(font = list(color = "white")),
+            gridcolor = "#888888",
+            zerolinecolor = "#888888",
+            linecolor = "white"
+          )
+        )
+    } else {
+      p %>%
+        layout(
+          paper_bgcolor = "white",
+          plot_bgcolor = "white",
+          font = list(color = "black"),
+          legend = list(font = list(color = "black")),
+          xaxis = list(
+            tickfont = list(color = "black"),
+            title = list(font = list(color = "black")),
+            gridcolor = "gray80",
+            zerolinecolor = "gray80",
+            linecolor = "black"
+          ),
+          yaxis = list(
+            tickfont = list(color = "black"),
+            title = list(font = list(color = "black")),
+            gridcolor = "gray80",
+            zerolinecolor = "gray80",
+            linecolor = "black"
+          )
+        )
+    }
+  }
+  
   plot_data <- reactive({
     startYear <- input$yearrange[1]
     endYear <- input$yearrange[2]
@@ -286,34 +364,38 @@ server <- function(input, output, session) {
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
         theme_minimal()
       
-      plotly::ggplotly(p, tooltip = "text") %>%
-        layout(hovermode = "closest", margin = list(t = 35))
+      apply_plot_theme(
+        plotly::ggplotly(p, tooltip = "text") %>%
+          layout(hovermode = "closest", margin = list(t = 35))
+      )
     } else {
       d <- plot_data()
-      plotly::plot_ly(
-        data = d,
-        x = ~as.numeric(year),
-        y = ~win_pct,
-        type = "scatter",
-        mode = "lines+markers",
-        line = list(color = "purple", width = 2),
-        marker = list(color = "purple", size = 6),
-        text = ~paste0(
-          "Year: ", year,
-          "<br>Win Percentage: ", scales::percent(win_pct, accuracy = 0.1)
-        ),
-        hoverinfo = "text"
-      ) %>%
-        layout(
-          xaxis = list(title = "Year", tickmode = "array"),
-          yaxis = list(
-            title = "Win Percentage",
-            tickformat = ".0%",
-            range = c(0, 0.5)
+      apply_plot_theme(
+        plotly::plot_ly(
+          data = d,
+          x = ~as.numeric(year),
+          y = ~win_pct,
+          type = "scatter",
+          mode = "lines+markers",
+          line = list(color = "purple", width = 2),
+          marker = list(color = "purple", size = 6),
+          text = ~paste0(
+            "Year: ", year,
+            "<br>Win Percentage: ", scales::percent(win_pct, accuracy = 0.1)
           ),
-          hovermode = "closest",
-          margin = list(t = 60)
-        )
+          hoverinfo = "text"
+        ) %>%
+          layout(
+            xaxis = list(title = "Year", tickmode = "array"),
+            yaxis = list(
+              title = "Win Percentage",
+              tickformat = ".0%",
+              range = c(0, 0.5)
+            ),
+            hovermode = "closest",
+            margin = list(t = 60)
+          )
+      )
     }
   })
   
@@ -339,8 +421,10 @@ server <- function(input, output, session) {
       scale_fill_manual(values = c("Consonant" = "blue", "Vowel" = "red")) +
       theme_minimal()
     
-    plotly::ggplotly(p, tooltip = "text") %>%
-      layout(hovermode = "closest", margin = list(t = 35))
+    apply_plot_theme(
+      plotly::ggplotly(p, tooltip = "text") %>%
+        layout(hovermode = "closest", margin = list(t = 35))
+    )
   })
   
   # Render Average Puzzle Length plot
@@ -356,35 +440,39 @@ server <- function(input, output, session) {
               "<br>Average Puzzle Length: ", round(puzzle_length, 1)
             )
           ),
-          fill = "springgreen3"
+          fill = "#00CD66"
         ) + 
         labs(x = "Average Puzzle Length", y = "Category") +
         theme_minimal()
       
-      plotly::ggplotly(p, tooltip = "text") %>%
-        layout(hovermode = "closest", margin = list(t = 35))
+      apply_plot_theme(
+        plotly::ggplotly(p, tooltip = "text") %>%
+          layout(hovermode = "closest", margin = list(t = 35))
+      )
     } else {
       d <- plot_data()
-      plotly::plot_ly(
-        data = d,
-        x = ~as.numeric(year),
-        y = ~puzzle_length,
-        type = "scatter",
-        mode = "lines+markers",
-        line = list(color = "springgreen3", width = 2),
-        marker = list(color = "springgreen3", size = 6),
-        text = ~paste0(
-          "Year: ", year,
-          "<br>Average Puzzle Length: ", round(puzzle_length, 1)
-        ),
-        hoverinfo = "text"
-      ) %>%
-        layout(
-          xaxis = list(title = "Year", tickmode = "array"),
-          yaxis = list(title = "Average Puzzle Length"),
-          hovermode = "closest",
-          margin = list(t = 60)
-        )
+      apply_plot_theme(
+        plotly::plot_ly(
+          data = d,
+          x = ~as.numeric(year),
+          y = ~puzzle_length,
+          type = "scatter",
+          mode = "lines+markers",
+          line = list(color = "#00CD66", width = 2),
+          marker = list(color = "#00CD66", size = 6),
+          text = ~paste0(
+            "Year: ", year,
+            "<br>Average Puzzle Length: ", round(puzzle_length, 1)
+          ),
+          hoverinfo = "text"
+        ) %>%
+          layout(
+            xaxis = list(title = "Year", tickmode = "array"),
+            yaxis = list(title = "Average Puzzle Length"),
+            hovermode = "closest",
+            margin = list(t = 60)
+          )
+      )
     }
   })
   
@@ -408,34 +496,38 @@ server <- function(input, output, session) {
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
         theme_minimal()
       
-      plotly::ggplotly(p, tooltip = "text") %>%
-        layout(hovermode = "closest", margin = list(t = 35))
+      apply_plot_theme(
+        plotly::ggplotly(p, tooltip = "text") %>%
+          layout(hovermode = "closest", margin = list(t = 35))
+      )
     } else {
       d <- plot_data()
-      plotly::plot_ly(
-        data = d,
-        x = ~as.numeric(year),
-        y = ~pct_letters_revealed,
-        type = "scatter",
-        mode = "lines+markers",
-        line = list(color = "deepskyblue", width = 2),
-        marker = list(color = "deepskyblue", size = 6),
-        text = ~paste0(
-          "Year: ", year,
-          "<br>Average Percent of Letters Revealed: ",
-          scales::percent(pct_letters_revealed, accuracy = 0.1)
-        ),
-        hoverinfo = "text"
-      ) %>%
-        layout(
-          xaxis = list(title = "Year", tickmode = "array"),
-          yaxis = list(
-            title = "Average Percent of Letters Revealed",
-            tickformat = ".0%"
+      apply_plot_theme(
+        plotly::plot_ly(
+          data = d,
+          x = ~as.numeric(year),
+          y = ~pct_letters_revealed,
+          type = "scatter",
+          mode = "lines+markers",
+          line = list(color = "deepskyblue", width = 2),
+          marker = list(color = "deepskyblue", size = 6),
+          text = ~paste0(
+            "Year: ", year,
+            "<br>Average Percent of Letters Revealed: ",
+            scales::percent(pct_letters_revealed, accuracy = 0.1)
           ),
-          hovermode = "closest",
-          margin = list(t = 60)
-        )
+          hoverinfo = "text"
+        ) %>%
+          layout(
+            xaxis = list(title = "Year", tickmode = "array"),
+            yaxis = list(
+              title = "Average Percent of Letters Revealed",
+              tickformat = ".0%"
+            ),
+            hovermode = "closest",
+            margin = list(t = 60)
+          )
+      )
     }
   })
 }
