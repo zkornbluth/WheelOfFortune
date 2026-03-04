@@ -159,17 +159,28 @@ integer_breaks <- function(n = 5, ...) {
 ui <- page_fillable(
   title = "WoF Dashboard",
   h1("Wheel of Fortune Bonus Round Dashboard"),
-  # Year Picker (2001 - 2025)
-  airYearpickerInput(
-    "yearpicker",
-    label="Year Range",
-    multiple=FALSE,
-    range=TRUE,
-    min="2001-01-01",
-    max="2025-12-31",
-    autoClose=TRUE,
-    addon='none',
-    update_on='close'
+  # Year range controls (2001 - 2025)
+  div(
+    class = "d-flex align-items-center",
+    sliderInput(
+      "yearrange",
+      label = "Year Range",
+      min = 2001,
+      max = 2025,
+      value = c(2001, 2025),
+      step = 1,
+      sep = ""
+    ),
+    div(
+      class = "pb-2",
+      style = "margin-left: 1.5rem;",
+      actionButton(
+        "alltime",
+        label = "All Games",
+        width = "auto",
+        class = "btn-sm btn-primary"
+      )
+    )
   ),
   # Show Categories switch
   materialSwitch(
@@ -212,55 +223,43 @@ ui <- page_fillable(
 
 server <- function(input, output, session) {
   plot_data <- reactive({
-      if (input$categoriesOn & is.null(input$yearpicker)) {
-        getCategorizedWheelDataYearFilter(2001, 2025)
-        
-      } else if (input$categoriesOn & !is.null(input$yearpicker)) {
-        startYear <- lubridate::year(as.Date(input$yearpicker[1]))
-        endYear <- lubridate::year(as.Date(input$yearpicker[2]))
-        getCategorizedWheelDataYearFilter(startYear, endYear)
-        
-      } else if (!input$categoriesOn & is.null(input$yearpicker)) {
-        yearly_wheel_data
-        
-      } else {
-        startYear <- lubridate::year(as.Date(input$yearpicker[1]))
-        endYear <- lubridate::year(as.Date(input$yearpicker[2]))
-        yearly_wheel_data %>%
-          filter(as.numeric(year) >= startYear,
-                 as.numeric(year) <= endYear)
-      }
-    })
+    startYear <- input$yearrange[1]
+    endYear <- input$yearrange[2]
+    
+    if (input$categoriesOn) {
+      getCategorizedWheelDataYearFilter(startYear, endYear)
+    } else {
+      yearly_wheel_data %>%
+        filter(as.numeric(year) >= startYear,
+               as.numeric(year) <= endYear)
+    }
+  })
   
   letter_data <- reactive({
-    if (is.null(input$yearpicker) & input$pickcategory == "All") {
-      getLetterFreq(2001, 2025)
-    } else if (input$pickcategory == "All") {
-      startYear <- lubridate::year(as.Date(input$yearpicker[1]))
-      endYear <- lubridate::year(as.Date(input$yearpicker[2]))
+    startYear <- input$yearrange[1]
+    endYear <- input$yearrange[2]
+    
+    if (input$pickcategory == "All") {
       getLetterFreq(startYear, endYear)
-    } else if (is.null(input$yearpicker)) {
-      getLetterFreq(2001, 2025, input$pickcategory)
     } else {
-      startYear <- lubridate::year(as.Date(input$yearpicker[1]))
-      endYear <- lubridate::year(as.Date(input$yearpicker[2]))
       getLetterFreq(startYear, endYear, input$pickcategory)
     }
   })
   
   cat_options <- reactive({
-    if (is.null(input$yearpicker)) {
-      getCatsInYearRange(2001, 2025)
-    } else {
-      startYear <- lubridate::year(as.Date(input$yearpicker[1]))
-      endYear <- lubridate::year(as.Date(input$yearpicker[2]))
-      getCatsInYearRange(startYear, endYear)
-    }
+    startYear <- input$yearrange[1]
+    endYear <- input$yearrange[2]
+    getCatsInYearRange(startYear, endYear)
   })
   
   # Update category dropdown based on selected years
-  observeEvent(input$yearpicker, {
+  observeEvent(input$yearrange, {
     updateSelectInput(session, "pickcategory", choices = c("All", cat_options()))
+  })
+  
+  # All Time button: reset slider to full range
+  observeEvent(input$alltime, {
+    updateSliderInput(session, "yearrange", value = c(2001, 2025))
   })
   
   # Render plots
