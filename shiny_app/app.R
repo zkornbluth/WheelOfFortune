@@ -18,6 +18,7 @@ library(scales)
 library(ggplot2)
 library(forcats)
 library(dplyr)
+library(plotly)
 
 if (FALSE) {
   library(munsell)
@@ -181,7 +182,7 @@ ui <- page_fillable(
     # Win Percentage plot
     card(
       card_header("Win Percentage", class="bg-dark"),
-      plotOutput("winpctplot")
+      plotlyOutput("winpctplot")
       ),
     # Puzzle Letter Frequency plot
     card(
@@ -192,17 +193,17 @@ ui <- page_fillable(
         choices=c("All", getCatsInYearRange(2001, 2025)),
         selected="All"
       ),
-      plotOutput("letterfreqplot")
+      plotlyOutput("letterfreqplot")
       ),
     # Average Puzzle Length plot
     card(
       card_header("Avg Puzzle Length", class="bg-dark"),
-      plotOutput("puzzlengthplot")
+      plotlyOutput("puzzlengthplot")
       ),
     # Average Percentage of Puzzle Revealed plot
     card(
       card_header("Avg Percentage of Puzzle Revealed", class="bg-dark"),
-      plotOutput("revealedplot")
+      plotlyOutput("revealedplot")
       ),
     col_widths = c(6, 6, 6, 6), # each plot/card is half the screen width
     row_heights = c(1, 1)
@@ -268,66 +269,176 @@ server <- function(input, output, session) {
   # Show Categories is off: line graphs by year
   
   # Render Win Percentage plot
-  output$winpctplot <- renderPlot(
+  output$winpctplot <- plotly::renderPlotly({
     if (input$categoriesOn) {
-      ggplot(plot_data()) + 
-        geom_col(mapping=aes(y=fct_reorder(category, win_pct), x=win_pct), fill="purple") + 
+      p <- ggplot(plot_data()) + 
+        geom_col(
+          mapping = aes(
+            y = fct_reorder(category, win_pct),
+            x = win_pct,
+            text = paste0(
+              "Category: ", category,
+              "<br>Win Percentage: ", scales::percent(win_pct, accuracy = 0.1)
+            )
+          ),
+          fill = "purple"
+        ) + 
         labs(x = "Win Percentage", y = "Category") +
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
         theme_minimal()
+      
+      plotly::ggplotly(p, tooltip = "text") %>%
+        layout(hovermode = "closest", margin = list(t = 35))
     } else {
-      ggplot(plot_data()) + 
-        geom_path(mapping=aes(year, win_pct), color="purple") + 
-        labs(x = "Year", y = "Win Percentage") +
-        scale_y_continuous(labels = scales::percent_format(scale = 100), limits=c(0, 0.5)) +
-        scale_x_continuous(breaks = integer_breaks()) +
-        theme_minimal()
+      d <- plot_data()
+      plotly::plot_ly(
+        data = d,
+        x = ~as.numeric(year),
+        y = ~win_pct,
+        type = "scatter",
+        mode = "lines+markers",
+        line = list(color = "purple", width = 2),
+        marker = list(color = "purple", size = 6),
+        text = ~paste0(
+          "Year: ", year,
+          "<br>Win Percentage: ", scales::percent(win_pct, accuracy = 0.1)
+        ),
+        hoverinfo = "text"
+      ) %>%
+        layout(
+          xaxis = list(title = "Year", tickmode = "array"),
+          yaxis = list(
+            title = "Win Percentage",
+            tickformat = ".0%",
+            range = c(0, 0.5)
+          ),
+          hovermode = "closest",
+          margin = list(t = 60)
+        )
     }
-  )
+  })
   
   # Render Puzzle Letter Frequency plot
-  output$letterfreqplot <- renderPlot(
-    ggplot(letter_data()) +
-      geom_col(mapping=aes(x=fct_rev(fct_reorder(letter, appearance_rate)), y=appearance_rate, fill=is_vowel)) +
+  output$letterfreqplot <- plotly::renderPlotly({
+    p <- ggplot(
+      letter_data() |>
+        dplyr::mutate(vowel_label = if_else(is_vowel, "Vowel", "Consonant"))
+    ) +
+      geom_col(
+        mapping = aes(
+          x = fct_rev(fct_reorder(letter, appearance_rate)),
+          y = appearance_rate,
+          fill = vowel_label,
+          text = paste0(
+            "Letter: ", letter,
+            "<br>Appearance rate: ", scales::percent(appearance_rate, accuracy = 0.1)
+          )
+        )
+      ) +
       labs(y = "Appearance Rate", x = "Letter", fill = "") +
       scale_y_continuous(labels = scales::percent_format(scale = 100)) +
-      scale_fill_manual(values = c("TRUE" = "red", "FALSE" = "blue"), labels = c("Consonant", "Vowel")) +
+      scale_fill_manual(values = c("Consonant" = "blue", "Vowel" = "red")) +
       theme_minimal()
-  )
+    
+    plotly::ggplotly(p, tooltip = "text") %>%
+      layout(hovermode = "closest", margin = list(t = 35))
+  })
   
   # Render Average Puzzle Length plot
-  output$puzzlengthplot <- renderPlot(
+  output$puzzlengthplot <- plotly::renderPlotly({
     if (input$categoriesOn) {
-      ggplot(plot_data()) + 
-        geom_col(mapping=aes(y=fct_reorder(category, puzzle_length), x=puzzle_length), fill="springgreen3") + 
+      p <- ggplot(plot_data()) + 
+        geom_col(
+          mapping = aes(
+            y = fct_reorder(category, puzzle_length),
+            x = puzzle_length,
+            text = paste0(
+              "Category: ", category,
+              "<br>Average Puzzle Length: ", round(puzzle_length, 1)
+            )
+          ),
+          fill = "springgreen3"
+        ) + 
         labs(x = "Average Puzzle Length", y = "Category") +
         theme_minimal()
+      
+      plotly::ggplotly(p, tooltip = "text") %>%
+        layout(hovermode = "closest", margin = list(t = 35))
     } else {
-      ggplot(plot_data()) + 
-        geom_path(mapping=aes(year, puzzle_length), color="springgreen3") + 
-        labs(x = "Year", y = "Average Puzzle Length") +
-        scale_x_continuous(breaks = integer_breaks()) +
-        theme_minimal()
+      d <- plot_data()
+      plotly::plot_ly(
+        data = d,
+        x = ~as.numeric(year),
+        y = ~puzzle_length,
+        type = "scatter",
+        mode = "lines+markers",
+        line = list(color = "springgreen3", width = 2),
+        marker = list(color = "springgreen3", size = 6),
+        text = ~paste0(
+          "Year: ", year,
+          "<br>Average Puzzle Length: ", round(puzzle_length, 1)
+        ),
+        hoverinfo = "text"
+      ) %>%
+        layout(
+          xaxis = list(title = "Year", tickmode = "array"),
+          yaxis = list(title = "Average Puzzle Length"),
+          hovermode = "closest",
+          margin = list(t = 60)
+        )
     }
-  )
+  })
   
   # Render Average Percentage of Puzzle Revealed plot
-  output$revealedplot <- renderPlot(
+  output$revealedplot <- plotly::renderPlotly({
     if (input$categoriesOn) {
-      ggplot(plot_data()) + 
-        geom_col(mapping=aes(y=fct_reorder(category, pct_letters_revealed), x=pct_letters_revealed), fill="deepskyblue") + 
+      p <- ggplot(plot_data()) + 
+        geom_col(
+          mapping = aes(
+            y = fct_reorder(category, pct_letters_revealed),
+            x = pct_letters_revealed,
+            text = paste0(
+              "Category: ", category,
+              "<br>Average Percent of Letters Revealed: ",
+              scales::percent(pct_letters_revealed, accuracy = 0.1)
+            )
+          ),
+          fill = "deepskyblue"
+        ) + 
         labs(x = "Average Percent of Letters Revealed", y = "Category") +
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
         theme_minimal()
+      
+      plotly::ggplotly(p, tooltip = "text") %>%
+        layout(hovermode = "closest", margin = list(t = 35))
     } else {
-      ggplot(plot_data()) +
-        geom_path(mapping=aes(year, pct_letters_revealed), color="deepskyblue") + 
-        labs(x = "Year", y = "Average Percent of Letters Revealed") +
-        scale_y_continuous(labels = scales::percent_format(scale = 100)) +
-        scale_x_continuous(breaks = integer_breaks()) +
-        theme_minimal()
+      d <- plot_data()
+      plotly::plot_ly(
+        data = d,
+        x = ~as.numeric(year),
+        y = ~pct_letters_revealed,
+        type = "scatter",
+        mode = "lines+markers",
+        line = list(color = "deepskyblue", width = 2),
+        marker = list(color = "deepskyblue", size = 6),
+        text = ~paste0(
+          "Year: ", year,
+          "<br>Average Percent of Letters Revealed: ",
+          scales::percent(pct_letters_revealed, accuracy = 0.1)
+        ),
+        hoverinfo = "text"
+      ) %>%
+        layout(
+          xaxis = list(title = "Year", tickmode = "array"),
+          yaxis = list(
+            title = "Average Percent of Letters Revealed",
+            tickformat = ".0%"
+          ),
+          hovermode = "closest",
+          margin = list(t = 60)
+        )
     }
-  )
+  })
 }
 
 shinyApp(ui, server)
