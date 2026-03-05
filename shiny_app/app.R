@@ -162,9 +162,10 @@ dark_theme <- bs_theme(version = 5, bootswatch = "darkly")
 ui <- page_fillable(
   title = "WoF Dashboard",
   theme = light_theme,
+  tags$style(".shrink-slider .shiny-input-container { margin-top: 0; margin-bottom: 0; }"),
   div(
     class = "d-flex justify-content-between align-items-center mb-3",
-    h1("Wheel of Fortune Bonus Round Dashboard"),
+    h3("Wheel of Fortune Bonus Round Dashboard"),
     actionButton(
       "darkmode",
       label = NULL,
@@ -175,10 +176,14 @@ ui <- page_fillable(
   ),
   # Year range controls (2001 - 2025)
   div(
-    class = "d-flex align-items-center",
+    class = "d-flex align-items-center mb-1 shrink-slider",
+    div(
+      class = "me-2 fw-semibold",
+      "Year Range"
+    ),
     sliderInput(
       "yearrange",
-      label = "Year Range",
+      label = NULL,
       min = 2001,
       max = 2025,
       value = c(2001, 2025),
@@ -237,7 +242,6 @@ ui <- page_fillable(
 
 server <- function(input, output, session) {
   dark_mode <- reactiveVal(FALSE)
-  
   observeEvent(input$darkmode, {
     new_val <- !dark_mode()
     dark_mode(new_val)
@@ -301,8 +305,9 @@ server <- function(input, output, session) {
   }
   
   plot_data <- reactive({
-    startYear <- input$yearrange[1]
-    endYear <- input$yearrange[2]
+    req(input$yearrange)
+    startYear <- as.integer(input$yearrange[1])
+    endYear <- as.integer(input$yearrange[2])
     
     if (input$categoriesOn) {
       getCategorizedWheelDataYearFilter(startYear, endYear)
@@ -314,8 +319,9 @@ server <- function(input, output, session) {
   })
   
   letter_data <- reactive({
-    startYear <- input$yearrange[1]
-    endYear <- input$yearrange[2]
+    req(input$yearrange)
+    startYear <- as.integer(input$yearrange[1])
+    endYear <- as.integer(input$yearrange[2])
     
     if (input$pickcategory == "All") {
       getLetterFreq(startYear, endYear)
@@ -325,8 +331,9 @@ server <- function(input, output, session) {
   })
   
   cat_options <- reactive({
-    startYear <- input$yearrange[1]
-    endYear <- input$yearrange[2]
+    req(input$yearrange)
+    startYear <- as.integer(input$yearrange[1])
+    endYear <- as.integer(input$yearrange[2])
     getCatsInYearRange(startYear, endYear)
   })
   
@@ -366,7 +373,14 @@ server <- function(input, output, session) {
       
       apply_plot_theme(
         plotly::ggplotly(p, tooltip = "text") %>%
-          layout(hovermode = "closest", margin = list(t = 35))
+          layout(
+            hovermode = "closest",
+            margin = list(t = 35),
+            yaxis = list(
+              title = list(standoff = 10, font = list(size = 11)),
+              tickfont = list(size = 10)
+            )
+          )
       )
     } else {
       d <- plot_data()
@@ -447,7 +461,14 @@ server <- function(input, output, session) {
       
       apply_plot_theme(
         plotly::ggplotly(p, tooltip = "text") %>%
-          layout(hovermode = "closest", margin = list(t = 35))
+          layout(
+            hovermode = "closest",
+            margin = list(t = 35),
+            yaxis = list(
+              title = list(standoff = 10, font = list(size = 11)),
+              tickfont = list(size = 10)
+            )
+          )
       )
     } else {
       d <- plot_data()
@@ -498,7 +519,14 @@ server <- function(input, output, session) {
       
       apply_plot_theme(
         plotly::ggplotly(p, tooltip = "text") %>%
-          layout(hovermode = "closest", margin = list(t = 35))
+          layout(
+            hovermode = "closest",
+            margin = list(t = 35),
+            yaxis = list(
+              title = list(standoff = 10, font = list(size = 11)),
+              tickfont = list(size = 10)
+            )
+          )
       )
     } else {
       d <- plot_data()
