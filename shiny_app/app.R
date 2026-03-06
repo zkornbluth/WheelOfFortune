@@ -18,7 +18,6 @@ library(scales)
 library(ggplot2)
 library(forcats)
 library(dplyr)
-library(plotly)
 
 if (FALSE) {
   library(munsell)
@@ -202,17 +201,16 @@ ui <- page_fillable(
     )
   ),
   # Show Categories switch
-  materialSwitch(
+  bslib::input_switch(
     "categoriesOn",
     label="Show Categories",
-    status="info",
     value=TRUE
   ),
   layout_columns(
     # Win Percentage plot
     card(
       card_header("Win Percentage", class="bg-dark"),
-      plotlyOutput("winpctplot")
+      plotOutput("winpctplot")
       ),
     # Puzzle Letter Frequency plot
     card(
@@ -223,17 +221,17 @@ ui <- page_fillable(
         choices=c("All", getCatsInYearRange(2001, 2025)),
         selected="All"
       ),
-      plotlyOutput("letterfreqplot")
+      plotOutput("letterfreqplot")
       ),
     # Average Puzzle Length plot
     card(
       card_header("Avg Puzzle Length", class="bg-dark"),
-      plotlyOutput("puzzlengthplot")
+      plotOutput("puzzlengthplot")
       ),
     # Average Percentage of Puzzle Revealed plot
     card(
       card_header("Avg Percentage of Puzzle Revealed", class="bg-dark"),
-      plotlyOutput("revealedplot")
+      plotOutput("revealedplot")
       ),
     col_widths = c(6, 6, 6, 6), # each plot/card is half the screen width
     row_heights = c(1, 1)
@@ -255,61 +253,47 @@ server <- function(input, output, session) {
     }
   })
   
-  apply_plot_theme <- function(p) {
-    if (dark_mode()) {
-      p %>%
-        layout(
-          # Match dark card/background color from theme
-          paper_bgcolor = "#2d2d2d",
-          plot_bgcolor = "#2d2d2d",
-          font = list(color = "white"),
-          legend = list(font = list(color = "white")),
-          xaxis = list(
-            tickfont = list(color = "white"),
-            title = list(font = list(color = "white")),
-            gridcolor = "#888888",
-            zerolinecolor = "#888888",
-            linecolor = "white"
-          ),
-          yaxis = list(
-            tickfont = list(color = "white"),
-            title = list(font = list(color = "white")),
-            gridcolor = "#888888",
-            zerolinecolor = "#888888",
-            linecolor = "white"
-          )
-        )
+  categories_on <- reactive({
+    val <- input$categoriesOn
+    if (is.null(val)) TRUE else isTRUE(val)
+  })
+  
+  apply_plot_theme <- function(horizontal_categories = FALSE) {
+    bg <- if (dark_mode()) "#2d2d2d" else "white"
+    fg <- if (dark_mode()) "white" else "black"
+    grid <- if (dark_mode()) "#888888" else "gray80"
+    
+    extra_theme <- if (horizontal_categories) {
+      theme(
+        axis.title.y = element_text(size = 11, margin = margin(r = 10)),
+        axis.text.y = element_text(size = 10)
+      )
     } else {
-      p %>%
-        layout(
-          paper_bgcolor = "white",
-          plot_bgcolor = "white",
-          font = list(color = "black"),
-          legend = list(font = list(color = "black")),
-          xaxis = list(
-            tickfont = list(color = "black"),
-            title = list(font = list(color = "black")),
-            gridcolor = "gray80",
-            zerolinecolor = "gray80",
-            linecolor = "black"
-          ),
-          yaxis = list(
-            tickfont = list(color = "black"),
-            title = list(font = list(color = "black")),
-            gridcolor = "gray80",
-            zerolinecolor = "gray80",
-            linecolor = "black"
-          )
-        )
+      theme()
     }
+    
+    theme_minimal() +
+      theme(
+        plot.background = element_rect(fill = bg, color = NA),
+        panel.background = element_rect(fill = bg, color = NA),
+        panel.grid = element_line(color = grid),
+        axis.text = element_text(color = fg),
+        axis.title = element_text(color = fg),
+        legend.text = element_text(color = fg),
+        legend.title = element_text(color = fg),
+        legend.background = element_rect(fill = bg, color = NA),
+        legend.key = element_rect(fill = bg, color = NA)
+      ) +
+      extra_theme
   }
   
   plot_data <- reactive({
+    cats <- categories_on()
     req(input$yearrange)
     startYear <- as.integer(input$yearrange[1])
     endYear <- as.integer(input$yearrange[2])
     
-    if (input$categoriesOn) {
+    if (cats) {
       getCategorizedWheelDataYearFilter(startYear, endYear)
     } else {
       yearly_wheel_data %>%
@@ -319,7 +303,7 @@ server <- function(input, output, session) {
   })
   
   letter_data <- reactive({
-    req(input$yearrange)
+    req(input$yearrange, input$pickcategory)
     startYear <- as.integer(input$yearrange[1])
     endYear <- as.integer(input$yearrange[2])
     
@@ -340,7 +324,7 @@ server <- function(input, output, session) {
   # Update category dropdown based on selected years
   observeEvent(input$yearrange, {
     updateSelectInput(session, "pickcategory", choices = c("All", cat_options()))
-  })
+  }, ignoreInit = TRUE)
   
   # All Time button: reset slider to full range
   observeEvent(input$alltime, {
@@ -353,69 +337,33 @@ server <- function(input, output, session) {
   # Show Categories is off: line graphs by year
   
   # Render Win Percentage plot
-  output$winpctplot <- plotly::renderPlotly({
-    if (input$categoriesOn) {
-      p <- ggplot(plot_data()) + 
+  output$winpctplot <- renderPlot({
+    if (categories_on()) {
+      ggplot(plot_data()) + 
         geom_col(
           mapping = aes(
             y = fct_reorder(category, win_pct),
-            x = win_pct,
-            text = paste0(
-              "Category: ", category,
-              "<br>Win Percentage: ", scales::percent(win_pct, accuracy = 0.1)
-            )
+            x = win_pct
           ),
           fill = "purple"
         ) + 
         labs(x = "Win Percentage", y = "Category") +
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
-        theme_minimal()
-      
-      apply_plot_theme(
-        plotly::ggplotly(p, tooltip = "text") %>%
-          layout(
-            hovermode = "closest",
-            margin = list(t = 35),
-            yaxis = list(
-              title = list(standoff = 10, font = list(size = 11)),
-              tickfont = list(size = 10)
-            )
-          )
-      )
+        apply_plot_theme(horizontal_categories = TRUE)
     } else {
-      d <- plot_data()
-      apply_plot_theme(
-        plotly::plot_ly(
-          data = d,
-          x = ~as.numeric(year),
-          y = ~win_pct,
-          type = "scatter",
-          mode = "lines+markers",
-          line = list(color = "purple", width = 2),
-          marker = list(color = "purple", size = 6),
-          text = ~paste0(
-            "Year: ", year,
-            "<br>Win Percentage: ", scales::percent(win_pct, accuracy = 0.1)
-          ),
-          hoverinfo = "text"
-        ) %>%
-          layout(
-            xaxis = list(title = "Year", tickmode = "array"),
-            yaxis = list(
-              title = "Win Percentage",
-              tickformat = ".0%",
-              range = c(0, 0.5)
-            ),
-            hovermode = "closest",
-            margin = list(t = 60)
-          )
-      )
+      ggplot(plot_data(), aes(x = as.numeric(year), y = win_pct)) +
+        geom_line(color = "purple", linewidth = 1) +
+        geom_point(color = "purple", size = 2) +
+        labs(x = "Year", y = "Win Percentage") +
+        scale_y_continuous(labels = scales::percent_format(scale = 100), limits = c(0, 0.5)) +
+        scale_x_continuous(breaks = integer_breaks()) +
+        apply_plot_theme()
     }
   })
   
   # Render Puzzle Letter Frequency plot
-  output$letterfreqplot <- plotly::renderPlotly({
-    p <- ggplot(
+  output$letterfreqplot <- renderPlot({
+    ggplot(
       letter_data() |>
         dplyr::mutate(vowel_label = if_else(is_vowel, "Vowel", "Consonant"))
     ) +
@@ -423,139 +371,60 @@ server <- function(input, output, session) {
         mapping = aes(
           x = fct_rev(fct_reorder(letter, appearance_rate)),
           y = appearance_rate,
-          fill = vowel_label,
-          text = paste0(
-            "Letter: ", letter,
-            "<br>Appearance rate: ", scales::percent(appearance_rate, accuracy = 0.1)
-          )
+          fill = vowel_label
         )
       ) +
       labs(y = "Appearance Rate", x = "Letter", fill = "") +
       scale_y_continuous(labels = scales::percent_format(scale = 100)) +
       scale_fill_manual(values = c("Consonant" = "blue", "Vowel" = "red")) +
-      theme_minimal()
-    
-    apply_plot_theme(
-      plotly::ggplotly(p, tooltip = "text") %>%
-        layout(hovermode = "closest", margin = list(t = 35))
-    )
+      apply_plot_theme()
   })
   
   # Render Average Puzzle Length plot
-  output$puzzlengthplot <- plotly::renderPlotly({
-    if (input$categoriesOn) {
-      p <- ggplot(plot_data()) + 
+  output$puzzlengthplot <- renderPlot({
+    if (categories_on()) {
+      ggplot(plot_data()) + 
         geom_col(
           mapping = aes(
             y = fct_reorder(category, puzzle_length),
-            x = puzzle_length,
-            text = paste0(
-              "Category: ", category,
-              "<br>Average Puzzle Length: ", round(puzzle_length, 1)
-            )
+            x = puzzle_length
           ),
           fill = "#00CD66"
         ) + 
         labs(x = "Average Puzzle Length", y = "Category") +
-        theme_minimal()
-      
-      apply_plot_theme(
-        plotly::ggplotly(p, tooltip = "text") %>%
-          layout(
-            hovermode = "closest",
-            margin = list(t = 35),
-            yaxis = list(
-              title = list(standoff = 10, font = list(size = 11)),
-              tickfont = list(size = 10)
-            )
-          )
-      )
+        apply_plot_theme(horizontal_categories = TRUE)
     } else {
-      d <- plot_data()
-      apply_plot_theme(
-        plotly::plot_ly(
-          data = d,
-          x = ~as.numeric(year),
-          y = ~puzzle_length,
-          type = "scatter",
-          mode = "lines+markers",
-          line = list(color = "#00CD66", width = 2),
-          marker = list(color = "#00CD66", size = 6),
-          text = ~paste0(
-            "Year: ", year,
-            "<br>Average Puzzle Length: ", round(puzzle_length, 1)
-          ),
-          hoverinfo = "text"
-        ) %>%
-          layout(
-            xaxis = list(title = "Year", tickmode = "array"),
-            yaxis = list(title = "Average Puzzle Length"),
-            hovermode = "closest",
-            margin = list(t = 60)
-          )
-      )
+      ggplot(plot_data(), aes(x = as.numeric(year), y = puzzle_length)) +
+        geom_line(color = "#00CD66", linewidth = 1) +
+        geom_point(color = "#00CD66", size = 2) +
+        labs(x = "Year", y = "Average Puzzle Length") +
+        scale_x_continuous(breaks = integer_breaks()) +
+        apply_plot_theme()
     }
   })
   
   # Render Average Percentage of Puzzle Revealed plot
-  output$revealedplot <- plotly::renderPlotly({
-    if (input$categoriesOn) {
-      p <- ggplot(plot_data()) + 
+  output$revealedplot <- renderPlot({
+    if (categories_on()) {
+      ggplot(plot_data()) + 
         geom_col(
           mapping = aes(
             y = fct_reorder(category, pct_letters_revealed),
-            x = pct_letters_revealed,
-            text = paste0(
-              "Category: ", category,
-              "<br>Average Percent of Letters Revealed: ",
-              scales::percent(pct_letters_revealed, accuracy = 0.1)
-            )
+            x = pct_letters_revealed
           ),
           fill = "deepskyblue"
         ) + 
         labs(x = "Average Percent of Letters Revealed", y = "Category") +
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
-        theme_minimal()
-      
-      apply_plot_theme(
-        plotly::ggplotly(p, tooltip = "text") %>%
-          layout(
-            hovermode = "closest",
-            margin = list(t = 35),
-            yaxis = list(
-              title = list(standoff = 10, font = list(size = 11)),
-              tickfont = list(size = 10)
-            )
-          )
-      )
+        apply_plot_theme(horizontal_categories = TRUE)
     } else {
-      d <- plot_data()
-      apply_plot_theme(
-        plotly::plot_ly(
-          data = d,
-          x = ~as.numeric(year),
-          y = ~pct_letters_revealed,
-          type = "scatter",
-          mode = "lines+markers",
-          line = list(color = "deepskyblue", width = 2),
-          marker = list(color = "deepskyblue", size = 6),
-          text = ~paste0(
-            "Year: ", year,
-            "<br>Average Percent of Letters Revealed: ",
-            scales::percent(pct_letters_revealed, accuracy = 0.1)
-          ),
-          hoverinfo = "text"
-        ) %>%
-          layout(
-            xaxis = list(title = "Year", tickmode = "array"),
-            yaxis = list(
-              title = "Average Percent of Letters Revealed",
-              tickformat = ".0%"
-            ),
-            hovermode = "closest",
-            margin = list(t = 60)
-          )
-      )
+      ggplot(plot_data(), aes(x = as.numeric(year), y = pct_letters_revealed)) +
+        geom_line(color = "deepskyblue", linewidth = 1) +
+        geom_point(color = "deepskyblue", size = 2) +
+        labs(x = "Year", y = "Average Percent of Letters Revealed") +
+        scale_y_continuous(labels = scales::percent_format(scale = 100)) +
+        scale_x_continuous(breaks = integer_breaks()) +
+        apply_plot_theme()
     }
   })
 }
