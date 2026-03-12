@@ -173,9 +173,9 @@ ui <- page_fillable(
       class = "btn-outline-secondary btn-sm"
     )
   ),
-  # Year range controls (2001 - 2025)
+  # Year range controls (2001 - 2025), Show Categories, and Download button all in one row
   div(
-    class = "d-flex align-items-center mb-1 shrink-slider",
+    class = "d-flex align-items-center mb-2 shrink-slider",
     div(
       class = "me-2 fw-semibold",
       "Year Range"
@@ -198,10 +198,20 @@ ui <- page_fillable(
         width = "auto",
         class = "btn-sm btn-primary"
       )
+    ),
+    div(
+      class = "ms-3",
+      bslib::input_switch(
+        "categoriesOn",
+        label = "Show Categories",
+        value = TRUE
+      )
+    ),
+    div(
+      class = "ms-auto",
+      uiOutput("download_plots_btn")
     )
   ),
-  # Show Categories switch and Download All Plots button (same row)
-  uiOutput("cats_and_download"),
   layout_columns(
     # Win Percentage plot
     card(
@@ -254,26 +264,18 @@ server <- function(input, output, session) {
     if (is.null(val)) TRUE else isTRUE(val)
   })
   
-  # Show Categories + Download button row with theme-aware button styling
-  output$cats_and_download <- renderUI({
+  # Theme-aware styling for Download All Plots button (right side of slider row)
+  output$download_plots_btn <- renderUI({
     btn_class <- if (dark_mode()) {
       "btn-primary btn-sm"
     } else {
       "btn-outline-primary btn-sm"
     }
     
-    div(
-      class = "d-flex justify-content-between align-items-center mb-3",
-      bslib::input_switch(
-        "categoriesOn",
-        label = "Show Categories",
-        value = TRUE
-      ),
-      downloadButton(
-        "downloadPlotsZip",
-        label = "Download All Plots (ZIP)",
-        class = btn_class
-      )
+    downloadButton(
+      "downloadPlotsZip",
+      label = "Download All Plots (ZIP)",
+      class = btn_class
     )
   })
   
