@@ -200,12 +200,8 @@ ui <- page_fillable(
       )
     )
   ),
-  # Show Categories switch
-  bslib::input_switch(
-    "categoriesOn",
-    label="Show Categories",
-    value=TRUE
-  ),
+  # Show Categories switch and Download All Plots button (same row)
+  uiOutput("cats_and_download"),
   layout_columns(
     # Win Percentage plot
     card(
@@ -256,6 +252,29 @@ server <- function(input, output, session) {
   categories_on <- reactive({
     val <- input$categoriesOn
     if (is.null(val)) TRUE else isTRUE(val)
+  })
+  
+  # Show Categories + Download button row with theme-aware button styling
+  output$cats_and_download <- renderUI({
+    btn_class <- if (dark_mode()) {
+      "btn-primary btn-sm"
+    } else {
+      "btn-outline-primary btn-sm"
+    }
+    
+    div(
+      class = "d-flex justify-content-between align-items-center mb-3",
+      bslib::input_switch(
+        "categoriesOn",
+        label = "Show Categories",
+        value = TRUE
+      ),
+      downloadButton(
+        "downloadPlotsZip",
+        label = "Download All Plots (ZIP)",
+        class = btn_class
+      )
+    )
   })
   
   apply_plot_theme <- function(horizontal_categories = FALSE) {
@@ -331,22 +350,17 @@ server <- function(input, output, session) {
     updateSliderInput(session, "yearrange", value = c(2001, 2025))
   })
   
-  # Render plots
-  # Other than Puzzle Letter Frequency, the plots change on Show Categories
-  # Show Categories is on: bar charts by category
-  # Show Categories is off: line graphs by year
-  
-  # Render Win Percentage plot
-  output$winpctplot <- renderPlot({
+  # Reactive plot objects (used by both renderPlot and download handler)
+  winpct_plot <- reactive({
     if (categories_on()) {
-      ggplot(plot_data()) + 
+      ggplot(plot_data()) +
         geom_col(
           mapping = aes(
             y = fct_reorder(category, win_pct),
             x = win_pct
           ),
           fill = "purple"
-        ) + 
+        ) +
         labs(x = "Win Percentage", y = "Category") +
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
         apply_plot_theme(horizontal_categories = TRUE)
@@ -361,8 +375,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # Render Puzzle Letter Frequency plot
-  output$letterfreqplot <- renderPlot({
+  letterfreq_plot <- reactive({
     ggplot(
       letter_data() |>
         dplyr::mutate(vowel_label = if_else(is_vowel, "Vowel", "Consonant"))
@@ -380,17 +393,16 @@ server <- function(input, output, session) {
       apply_plot_theme()
   })
   
-  # Render Average Puzzle Length plot
-  output$puzzlengthplot <- renderPlot({
+  puzzlength_plot <- reactive({
     if (categories_on()) {
-      ggplot(plot_data()) + 
+      ggplot(plot_data()) +
         geom_col(
           mapping = aes(
             y = fct_reorder(category, puzzle_length),
             x = puzzle_length
           ),
           fill = "#00CD66"
-        ) + 
+        ) +
         labs(x = "Average Puzzle Length", y = "Category") +
         apply_plot_theme(horizontal_categories = TRUE)
     } else {
@@ -403,17 +415,16 @@ server <- function(input, output, session) {
     }
   })
   
-  # Render Average Percentage of Puzzle Revealed plot
-  output$revealedplot <- renderPlot({
+  revealed_plot <- reactive({
     if (categories_on()) {
-      ggplot(plot_data()) + 
+      ggplot(plot_data()) +
         geom_col(
           mapping = aes(
             y = fct_reorder(category, pct_letters_revealed),
             x = pct_letters_revealed
           ),
           fill = "deepskyblue"
-        ) + 
+        ) +
         labs(x = "Average Percent of Letters Revealed", y = "Category") +
         scale_x_continuous(labels = scales::percent_format(scale = 100)) +
         apply_plot_theme(horizontal_categories = TRUE)
@@ -427,6 +438,49 @@ server <- function(input, output, session) {
         apply_plot_theme()
     }
   })
+  
+  # Render plots
+  output$winpctplot <- renderPlot(print(winpct_plot()))
+  output$letterfreqplot <- renderPlot(print(letterfreq_plot()))
+  output$puzzlengthplot <- renderPlot(print(puzzlength_plot()))
+  output$revealedplot <- renderPlot(print(revealed_plot()))
+  
+  # Download all plots as ZIP
+  output$downloadPlotsZip <- downloadHandler(
+    filename = function() {
+      paste0("wof_plots_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".zip")
+    },
+    content = function(file) {
+      tmpdir <- tempfile()
+      dir.create(tmpdir)
+      owd <- setwd(tmpdir)
+      on.exit(setwd(owd), add = TRUE)
+      on.exit(unlink(tmpdir, recursive = TRUE), add = TRUE)
+      plot_names <- c(
+        "win_pct.png",
+        "letter_freq.png",
+        "puzz_length.png",
+        "revealed.png"
+      )
+      ggplot2::ggsave(
+        plot_names[1], plot = winpct_plot(),
+        width = 8, height = 5, dpi = 150, device = "png"
+      )
+      ggplot2::ggsave(
+        plot_names[2], plot = letterfreq_plot(),
+        width = 8, height = 5, dpi = 150, device = "png"
+      )
+      ggplot2::ggsave(
+        plot_names[3], plot = puzzlength_plot(),
+        width = 8, height = 5, dpi = 150, device = "png"
+      )
+      ggplot2::ggsave(
+        plot_names[4], plot = revealed_plot(),
+        width = 8, height = 5, dpi = 150, device = "png"
+      )
+      zip(file, plot_names)
+    }
+  )
 }
 
 shinyApp(ui, server)
