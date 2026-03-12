@@ -18,14 +18,19 @@ library(scales)
 library(ggplot2)
 library(forcats)
 library(dplyr)
+library(DT)
 
 if (FALSE) {
   library(munsell)
 }
 
-# Import our data, add puzzle length and pct_letters_revealed
-wheel_data <- read.csv("wheeloffortune.csv", stringsAsFactors = FALSE)
-wheel_data$Date <- as.Date(wheel_data$Date, format = "%B %d, %Y")
+# Import our data
+wheel_data_raw <- read.csv("wheeloffortune.csv", stringsAsFactors = FALSE)
+wheel_data_raw$Date <- as.Date(wheel_data_raw$Date, format = "%B %d, %Y")
+wheel_data_raw$year <- wheel_data_raw$Date %>% format("%Y")
+
+# Working copy for processed data (puzzle stats, category cleaning, etc.)
+wheel_data <- wheel_data_raw
 supplied_letters = c('R', 'S', 'T', 'L', 'N', 'E') # players are given RSTLNE before they choose more
 
 wheel_data$puzzle_letters <- gsub("[^a-zA-Z]", "", wheel_data$Puzzle)
@@ -37,7 +42,6 @@ wheel_data <- wheel_data |>
   })))
 wheel_data$pct_letters_revealed <- wheel_data$num_revealed_letters / wheel_data$puzzle_length
 
-wheel_data$year <- wheel_data$Date %>% format("%Y")
 
 # Data spans 2001-2025
 yearly_wheel_data <- tibble(year = c(2001:2025), win_pct = 0, puzzle_length = 0, pct_letters_revealed = 0)
@@ -161,7 +165,10 @@ dark_theme <- bs_theme(version = 5, bootswatch = "darkly")
 ui <- page_fillable(
   title = "WoF Dashboard",
   theme = light_theme,
-  tags$style(".shrink-slider .shiny-input-container { margin-top: 0; margin-bottom: 0; }"),
+  tags$style("
+    .shrink-slider .shiny-input-container { margin-top: 0; margin-bottom: 0; }
+    .modal-dialog { max-width: 1200px; width: 95%; }
+  "),
   div(
     class = "d-flex justify-content-between align-items-center mb-3",
     h3("Wheel of Fortune Bonus Round Dashboard"),
@@ -173,7 +180,7 @@ ui <- page_fillable(
       class = "btn-outline-secondary btn-sm"
     )
   ),
-  # Year range controls (2001 - 2025), Show Categories, and Download button all in one row
+  # Year range controls (2001 - 2025), Show Categories, and buttons all in one row
   div(
     class = "d-flex align-items-center mb-2 shrink-slider",
     div(
@@ -208,8 +215,8 @@ ui <- page_fillable(
       )
     ),
     div(
-      class = "ms-auto",
-      uiOutput("download_plots_btn")
+      class = "ms-auto d-flex align-items-center gap-2",
+      uiOutput("plot_buttons")
     )
   ),
   layout_columns(
@@ -264,18 +271,27 @@ server <- function(input, output, session) {
     if (is.null(val)) TRUE else isTRUE(val)
   })
   
-  # Theme-aware styling for Download All Plots button (right side of slider row)
-  output$download_plots_btn <- renderUI({
-    btn_class <- if (dark_mode()) {
-      "btn-primary btn-sm"
+  # Theme-aware styling for plot-related buttons (right side of slider row)
+  output$plot_buttons <- renderUI({
+    if (dark_mode()) {
+      download_class <- "btn-primary btn-sm"
+      view_class <- "btn-secondary btn-sm ms-2"
     } else {
-      "btn-outline-primary btn-sm"
+      download_class <- "btn-outline-primary btn-sm"
+      view_class <- "btn-outline-secondary btn-sm ms-2"
     }
     
-    downloadButton(
-      "downloadPlotsZip",
-      label = "Download All Plots (ZIP)",
-      class = btn_class
+    tagList(
+      downloadButton(
+        "downloadPlotsZip",
+        label = "Download All Plots (ZIP)",
+        class = download_class
+      ),
+      actionButton(
+        "viewFilteredData",
+        label = "View Filtered Data",
+        class = view_class
+      )
     )
   })
   
@@ -342,6 +358,17 @@ server <- function(input, output, session) {
     getCatsInYearRange(startYear, endYear)
   })
   
+  # Raw, unprocessed game data filtered by current year range (used in modal table)
+  filtered_raw_data <- reactive({
+    req(input$yearrange)
+    startYear <- as.integer(input$yearrange[1])
+    endYear <- as.integer(input$yearrange[2])
+    
+    wheel_data_raw %>%
+      filter(as.numeric(year) >= startYear,
+             as.numeric(year) <= endYear)
+  })
+  
   # Update category dropdown based on selected years
   observeEvent(input$yearrange, {
     updateSelectInput(session, "pickcategory", choices = c("All", cat_options()))
@@ -350,6 +377,26 @@ server <- function(input, output, session) {
   # All Time button: reset slider to full range
   observeEvent(input$alltime, {
     updateSliderInput(session, "yearrange", value = c(2001, 2025))
+  })
+  
+  # Show modal with raw, filtered game data
+  observeEvent(input$viewFilteredData, {
+    showModal(
+      modalDialog(
+        title = "Filtered Game Data",
+        size = "l",
+        easyClose = TRUE,
+        DTOutput("filteredDataTable"),
+        footer = tagList(
+          downloadButton(
+            "downloadFilteredCsv",
+            label = "Download Filtered Data (CSV)",
+            class = "btn-primary"
+          ),
+          modalButton("Close")
+        )
+      )
+    )
   })
   
   # Reactive plot objects (used by both renderPlot and download handler)
@@ -446,6 +493,43 @@ server <- function(input, output, session) {
   output$letterfreqplot <- renderPlot(print(letterfreq_plot()))
   output$puzzlengthplot <- renderPlot(print(puzzlength_plot()))
   output$revealedplot <- renderPlot(print(revealed_plot()))
+  
+  # Raw data table for modal
+  output$filteredDataTable <- renderDT({
+    df <- filtered_raw_data()
+    cn <- colnames(df)
+    cn[cn == "Rejected.Cat.1"] <- "Rejected Category 1"
+    cn[cn == "Rejected.Cat.2"] <- "Rejected Category 2"
+    cn[cn == "Win."] <- "Win?"
+    cn[cn == "year"] <- "Year"
+    colnames(df) <- cn
+    
+    datatable(
+      df,
+      options = list(
+        pageLength = 25,
+        scrollX = TRUE
+      )
+    )
+  })
+  
+  # Download filtered data as CSV (with same column labels as shown in the table)
+  output$downloadFilteredCsv <- downloadHandler(
+    filename = function() {
+      paste0("wof_filtered_data_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+    },
+    content = function(file) {
+      df <- filtered_raw_data()
+      cn <- colnames(df)
+      cn[cn == "Rejected.Cat.1"] <- "Rejected Category 1"
+      cn[cn == "Rejected.Cat.2"] <- "Rejected Category 2"
+      cn[cn == "Win."] <- "Win?"
+      cn[cn == "year"] <- "Year"
+      colnames(df) <- cn
+      
+      write.csv(df, file, row.names = FALSE)
+    }
+  )
   
   # Download all plots as ZIP
   output$downloadPlotsZip <- downloadHandler(
